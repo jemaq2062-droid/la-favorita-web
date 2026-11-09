@@ -1,0 +1,15 @@
+[
+  {"aliasKey":"boligrafo","aliasText":"bolígrafo","canonicalTerm":"lapicero","status":"approved","requiresReview":false},
+  {"aliasKey":"boligrafos","aliasText":"bolígrafos","canonicalTerm":"lapiceros","status":"approved","requiresReview":false},
+  {"aliasKey":"lapisero","aliasText":"lapisero","canonicalTerm":"lapicero","status":"approved","requiresReview":false},
+  {"aliasKey":"lapiseros","aliasText":"lapiseros","canonicalTerm":"lapiceros","status":"approved","requiresReview":false},
+  {"aliasKey":"lapicera","aliasText":"lapicera","canonicalTerm":"lapicero","status":"approved","requiresReview":false},
+  {"aliasKey":"papelote","aliasText":"papelote","canonicalTerm":"papelógrafo","status":"approved","requiresReview":false},
+  {"aliasKey":"hoja bond","aliasText":"hoja bond","canonicalTerm":"papel bond","status":"approved","requiresReview":false},
+  {"aliasKey":"goma en barra","aliasText":"goma en barra","canonicalTerm":"pegamento en barra","status":"approved","requiresReview":false},
+  {"aliasKey":"fomi","aliasText":"fomi","canonicalTerm":"goma eva","status":"approved","requiresReview":false},
+  {"aliasKey":"foamy","aliasText":"foamy","canonicalTerm":"goma eva","status":"approved","requiresReview":false},
+  {"aliasKey":"corros pun escarchado","aliasText":"corros pun escarchado","canonicalTerm":"corospum escarchado","status":"review","requiresReview":true},
+  {"aliasKey":"corrospum escarchado","aliasText":"corrospum escarchado","canonicalTerm":"corospum escarchado","status":"review","requiresReview":true},
+  {"aliasKey":"corospun escarchado","aliasText":"corospun escarchado","canonicalTerm":"corospum escarchado","status":"review","requiresReview":true}
+]

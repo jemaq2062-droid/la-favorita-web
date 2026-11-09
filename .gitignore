@@ -1,0 +1,35 @@
+# Dependencias y archivos generados
+node_modules/
+coverage/
+dist/
+build/
+*.log
+npm-debug.log*
+
+# Contraseñas, conexiones y variables privadas
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Datos locales modificables (Render Free no es persistente)
+data/current.json
+data/*.tmp
+data/*.bak
+
+# Configuración local del editor y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+# Historial privado de cotizaciones, ofertas y tarifas del modo local
+# No subir registros comerciales ni datos de clientes al repositorio.
+data/commerce-v27.json
+data/commerce-v27.json.*
+
+# Datos locales de uso administrativo y archivos temporales
+data/commerce-*.json
+data/*.antes_v*.bak
+*.pid
+*.zip

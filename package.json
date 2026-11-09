@@ -1,0 +1,22 @@
+{
+  "name": "la-favorita-web",
+  "version": "34.0.0",
+  "private": true,
+  "description": "Plataforma comercial multi-sucursal La Favorita",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --watch server/index.mjs",
+    "check": "node --check server/index.mjs && node --check server/catalog.mjs && node --check public/site.js && node --check admin/admin.js && node --check public/experience-v7.js && node --check public/visual-v9.js && node --check public/motion-v10.js && node --check public/product-reveal.js && node --check public/home-reveal.js && node --check public/floating-background.js && node --check public/gateway-focus.js && node --check public/restore-extras.js && node --check public/gateway-water.js && node --check server/commerce.mjs",
+    "test": "node scripts/smoke-test.mjs && node scripts/test-datos.mjs && node scripts/test-commerce.mjs && node scripts/test-catalog-services.mjs",
+    "start:db": "node --env-file=.env server/index.mjs",
+    "check:bd": "node --check server/index.mjs && node --check server/store.mjs && node --check admin/admin.js",
+    "test:commerce": "node scripts/test-commerce.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}
