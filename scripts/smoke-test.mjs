@@ -7,7 +7,7 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const tmp=await mkdtemp(join(tmpdir(),'favorita-test-'));
 const port=33997,base=`http://127.0.0.1:${port}`;
-const child=spawn(process.execPath,['server/index.mjs'],{cwd:resolve(dirname(fileURLToPath(import.meta.url)),'..'),env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_FILE:join(tmp,'state.json'),COMMERCE_DATA_FILE:join(tmp,'commerce.json'),ADMIN_PASSWORD:'test-password-very-secret',DATABASE_URL:''},stdio:['ignore','pipe','pipe']});
+const child=spawn(process.execPath,['server/index.mjs'],{cwd:resolve(dirname(fileURLToPath(import.meta.url)),'..'),env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_FILE:join(tmp,'state.json'),COMMERCE_DATA_FILE:join(tmp,'commerce.json'),ADMIN_PASSWORD:'test-password-very-secret',DATABASE_URL:'',INITIAL_CATALOG_FILE:'data/seed.json'},stdio:['ignore','pipe','pipe']});
 let log='';child.stderr.on('data',x=>log+=x);
 async function get(url,opts={}){const r=await fetch(base+url,opts);const content=r.headers.get('content-type')||'';const data=content.includes('json')?await r.json():await r.text();return {r,data};}
 try{
@@ -29,13 +29,11 @@ try{
  x=await get('/styles.css');assert.equal(x.r.status,200);assert(x.data.includes('.lf-scroll-story'));
  x=await get('/experience-v7.js');assert.equal(x.r.status,200);assert(x.data.includes('getContext(\'webgl\','));
  x=await get('/');assert.equal(x.r.status,200);assert(x.data.includes('styles.css'));
- // V8: los recursos nuevos se sirven sin alterar la ruta ni la configuración del servidor.
  x=await get('/styles.css');assert(x.data.includes('lf8-branch-track')&&x.data.includes('lf8-product-track'));
  x=await get('/experience-v7.js');assert(x.data.includes('mountV8Extras')&&x.data.includes('data-lf8-product-carousel'));
  x=await get('/site.js');assert(x.data.includes('data-lf8-branch-showcase')&&x.data.includes('data-lf8-product-carousel'));
  x=await get('/assets/floating/pencil.svg');assert.equal(x.r.status,200);assert(x.data.includes('<svg'));
  x=await get('/assets/floating/notebook.svg');assert.equal(x.r.status,200);assert(x.data.includes('<svg'));
- // V9: archivos visuales servidos y fotos alternas por sucursal.
  x=await get('/styles.css');assert.equal(x.r.status,200);assert(x.data.includes('lf9-photo-swap'));
  x=await get('/visual-v9.js');assert.equal(x.r.status,200);assert(x.data.includes('webglPair'));
  x=await get('/assets/branches/sucursal-1-interior.webp');assert.equal(x.r.status,200);
@@ -73,7 +71,6 @@ try{
  x=await get('/api/store/sucursal-1');assert(x.data.campaigns.some(c=>c.title==='Novedad'));
  x=await get('/api/admin/sections',{method:'PUT',headers:auth,body:JSON.stringify({sections:(await get('/api/admin/state',{headers:auth})).data.sections.reverse()})});assert.equal(x.r.status,200);
  x=await get('/api/store/sucursal-1');assert.equal(x.data.sections[0].id,'catalogo');
- // V10: alta y retiro no destructivo, con recálculo por número de sucursales.
  x=await get('/styles.css');assert.equal(x.r.status,200);assert(x.data.includes('lf10-cylinder'));
  x=await get('/motion-v10.js');assert.equal(x.r.status,200);assert(x.data.includes('mountCylinder'));
  x=await get('/api/admin/branches',{method:'POST',headers:auth,body:JSON.stringify({name:'Sucursal nueva',address:'Av. Nueva 123',hours:'8:00 a 18:00'})});assert.equal(x.r.status,201);const newBranchId=x.data.item.id;

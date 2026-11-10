@@ -31,7 +31,7 @@ try{
  assert(file.includes("'catalogo','ofertas','novedades','especiales'"));
  const cwd=resolve(dirname(fileURLToPath(import.meta.url)),'..');
  const port=34029;
- child=spawn(process.execPath,['server/index.mjs'],{cwd,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_FILE:join(temp,'state.json'),ADMIN_PASSWORD:'test-v29-secret',DATABASE_URL:''},stdio:['ignore','pipe','pipe']});
+ child=spawn(process.execPath,['server/index.mjs'],{cwd,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',DATA_FILE:join(temp,'state.json'),ADMIN_PASSWORD:'test-v29-secret',DATABASE_URL:'',INITIAL_CATALOG_FILE:'data/seed.json'},stdio:['ignore','pipe','pipe']});
  let errors='';child.stderr.on('data',b=>errors+=b.toString());
  const url=`http://127.0.0.1:${port}`;
  let ready=false;

@@ -25,7 +25,7 @@ export function mountExtraReveals(){
  const nodes=[];
  const overview=document.querySelector('.service-overview');
  if(overview){
-  const title=overview.querySelector('.section-heading h2');if(title){splitText(title);const heading=title.closest('.section-heading');if(heading){heading.classList.add('lf-extra-reveal','lf-extra-heading');nodes.push(heading);}}
+  const title=overview.querySelector('.section-heading h2');if(title)title.dataset.extraWords='static';
   overview.querySelectorAll('.service-overview-grid>div').forEach((tile,i)=>{tile.classList.add('lf-extra-reveal','lf-extra-card');tile.style.setProperty('--lf-extra-delay',`${Math.min(i,5)*EXTRA_REVEAL_OPTIONS.stagger}ms`);nodes.push(tile);});
  }
  document.querySelectorAll('.quick-tools>.quick-tool').forEach((tile,i)=>{tile.classList.add('lf-extra-reveal','lf-extra-card');tile.style.setProperty('--lf-extra-delay',`${i*170}ms`);nodes.push(tile);});

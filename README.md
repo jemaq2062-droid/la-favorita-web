@@ -1,48 +1,92 @@
-# La Favorita — Plataforma web multi-sucursal
+# La Favorita · Plataforma comercial
 
-Catálogo por sucursal, campañas, ofertas programadas, cotizaciones, servicios y panel de administración. Proyecto Node.js y JavaScript/CSS, sin framework frontend.
+Sitio web y administración de catálogo para cuatro sucursales. Desarrollado con Node.js, JavaScript y CSS. Los productos, precios, stock, campañas y configuración se administran por sucursal.
 
-## Inicio rápido (Node.js 20+)
+## Requisitos
+
+- Node.js 20 o superior.
+- PostgreSQL para datos persistentes en producción (Neon compatible).
+
+## Desarrollo local
 
 ```bash
 npm install
 npm start
 ```
 
-La tienda se abre en `http://127.0.0.1:3000/` y el panel en `http://127.0.0.1:3000/admin/`. Para desarrollo local, si no se ha configurado `ADMIN_PASSWORD`, la clave predeterminada es `libreria`. **No utilices esa clave en producción**: configura una contraseña privada con la variable `ADMIN_PASSWORD` y un `SESSION_SECRET` propio.
+Web: `http://127.0.0.1:3000/`  
+Administración: `http://127.0.0.1:3000/admin/`
 
-Para desarrollo con PostgreSQL, revisa `.env.example` y usa `npm run start:db`. Si clonas el repositorio sin `data/current.json` y deseas probar los 1,334 productos publicados de la Sucursal 01 en modo local, establece `INITIAL_CATALOG_FILE=data/catalog-bootstrap.json` antes de arrancar. Si `DATABASE_URL` está definida, se utiliza PostgreSQL en lugar del archivo local. La aplicación crea sus tablas y aplica las migraciones disponibles en `db/`. Usa una base dedicada: al conectarte a una base existente puede modificar su esquema. **Haz un respaldo antes de migrar datos existentes.**
+Si `DATABASE_URL` no está definida, la aplicación usa un archivo local editable (`data/current.json`) y lo inicializa a partir de `data/catalog-bootstrap.json`. El archivo editable no se incluye en Git; el catálogo inicial sí. Los cambios del modo local no se transfieren automáticamente a PostgreSQL.
 
-## Catálogo, configuración y datos
+## Variables de entorno
 
-- **Modo local:** `data/current.json` guarda el estado editable del negocio (productos, precios y sucursales). No se versiona en Git para evitar sobrescribir ediciones reales. El ZIP completo incluye una copia para ejecutar la tienda inmediatamente.
-- **Respaldo público de catálogo:** `data/catalog-bootstrap.json` contiene una copia del catálogo y los precios que la tienda ya muestra. El despliegue Render sin PostgreSQL puede iniciarlo con `INITIAL_CATALOG_FILE=data/catalog-bootstrap.json`. Antes de subir a un repositorio **público**, revisa que los precios, teléfonos y demás datos publicados sean los que deseas difundir.
-- **Datos comerciales privados:** `data/commerce-v27.json` guarda cotizaciones y parámetros locales. Se excluye de Git. No lo reemplaces al actualizar.
-- **Neon/PostgreSQL:** la instalación con base real necesita importar tu catálogo completo a PostgreSQL; el modo PostgreSQL NO toma automáticamente los 1,342 productos de `catalog-bootstrap.json`. Comprueba la importación antes de publicar.
-- **Archivos de instalación:** `db/` contiene el esquema y scripts históricos de migración. Mantén esos archivos mientras existan instalaciones anteriores.
+Consulta `.env.example`. En un servidor de producción se requieren, como mínimo:
 
-## Funciones y límites
+- `DATABASE_URL`: conexión privada a PostgreSQL.
+- `ADMIN_PASSWORD`: contraseña privada del administrador.
+- `SESSION_SECRET`: secreto aleatorio para la sesión.
+- `NODE_ENV=production` y `HOST=0.0.0.0`.
 
-Cada sucursal tiene precios, disponibilidad y diseño propios; cambiar una tienda no modifica las demás. El cotizador escolar acepta foto/PDF; la lectura automática requiere `OPENAI_API_KEY` y puede generar costes. Si no está configurada, la página debe informar que el análisis no está disponible. No se procesan pagos en la web. Las presentaciones múltiples (unidad/docena/caja) todavía están pendientes de un módulo integral y **no** deben asumirse como implementadas.
+No subas `.env`, claves privadas ni archivos de datos locales. `render.yaml` contiene la configuración general de despliegue.
 
-El panel permite publicar u ocultar artículos por sucursal y gestionar campañas, banners, tarifas y cotizaciones. La interfaz carga inicialmente 24 productos por lote mediante «Ver más».
+## Datos de producción
 
-## Calidad y despliegue
+Las migraciones SQL que utiliza el servidor están en `db/`. No ejecutes importaciones de ejemplo sobre una base existente. Antes de migrar, haz un respaldo y comprueba que Neon contiene el catálogo comercial completo y los precios correctos por sucursal. La aplicación no sobrescribe ni reimporta automáticamente el catálogo al desplegarse.
+
+El archivo `data/catalog-bootstrap.json` es un catálogo inicial publicable, no un respaldo continuo de Neon. Las modificaciones del administrador se guardan en la base conectada y no deben reemplazarse por datos del archivo local.
+
+## Funcionalidades
+
+- Catálogo de ancho extendido con cinco columnas en pantallas amplias, columnas adaptables en móviles, búsqueda, filtros y carga manual de 24 productos por bloque.
+- Portada de sucursal con categorías ilustradas, franja de marcas tomada del catálogo y elementos decorativos de temporada.
+- Precios, publicación y stock independientes por sucursal.
+- Promociones y banners editables por sucursal: precio independiente del catálogo, descripción, fecha de vencimiento, cuenta regresiva, tarjetas opcionales, degradados configurables e imagen ambiental independiente con control de opacidad y posición.
+- Comparador de 2 a 4 artículos seleccionados por el usuario.
+- Cotizador escolar por imagen o PDF; lectura automática disponible únicamente con la API correspondiente configurada.
+- Calculadora de copias, impresiones y escaneos.
+- Panel de administración con controles de identidad visual, sucursales, productos, promociones y tarifas.
+- Ambiente de la sección «Más soluciones, menos complicaciones» personalizable por sucursal: imagen tenue, posición, opacidad y degradado. Los títulos degradados se muestran sin esperas por palabra.
+
+Los precios de los banners comerciales son independientes de los productos del catálogo. Un banner sin precio asignado muestra «Consultar»; nunca toma de manera automática el precio de un producto ajeno. Vincular expresamente un producto es opcional. Si configuras un precio anterior debe ser mayor al precio vigente. Un banner con fecha de vencimiento desaparece del carrusel al caducar, pero permanece en el panel administrativo para poder corregirlo o reutilizarlo. La vigencia se interpreta con la zona horaria local del navegador al guardar y se persiste en UTC. Las paletas predefinidas se pueden reemplazar mediante el selector de colores.
+
+La web no procesa pagos. Los precios y la disponibilidad están sujetos a confirmación por la sucursal. El sistema de múltiples presentaciones comerciales (unidad, docena, caja, etc.) es una ampliación posterior y no está habilitado todavía.
+
+La imagen del ambiente de **«Más soluciones»** se cambia desde **Admin → Ambiente de secciones**. La imagen ambiental del **carrusel principal** se cambia por separado desde **Admin → Banners de tienda → Editar banner → Fondo ambiental del carrusel**. Allí puedes elegir una imagen temática, colocar una URL HTTPS o ajustar la opacidad y la posición. Si dejas la ruta vacía, se selecciona automáticamente un recurso temático según la paleta del banner. Los cambios se guardan por sucursal en la misma persistencia comercial, sin nuevas tablas ni importaciones. Los controles no permiten subir archivos directamente del ordenador; para imágenes propias utiliza una URL pública HTTPS o incluye el recurso en el proyecto.
+
+## Verificación
 
 ```bash
 npm run check
 npm test
 ```
 
-La tienda pública carga `public/styles.css` y el panel `admin/styles.css`, conservando el orden CSS anterior en un solo archivo por interfaz para evitar conflictos de precedencia. Los controladores JS de animación se mantienen independientes y no requieren nuevas dependencias.
+## Directorios
 
-En Render u otros servicios efímeros, los archivos locales no garantizan persistencia. Si se configura `DATABASE_URL` en Render, importa el catálogo a esa base antes de publicar; el arranque NO hará la importación automáticamente. **Configura una base PostgreSQL persistente antes de usar el panel en producción**. `render.yaml` incluye la configuración base sin credenciales. Los secretos se definen en variables del proveedor, jamás en Git.
+| Carpeta | Contenido |
+|---|---|
+| `public/` | Web pública, estilos y animaciones |
+| `admin/` | Panel administrativo |
+| `server/` | API y persistencia de datos |
+| `db/` | Esquema y migraciones activas de PostgreSQL |
+| `data/` | Datos de inicio; el estado local editable se excluye de Git |
+| `scripts/` | Pruebas y utilidades de mantenimiento |
 
-## Estructura
+## Escaparate comercial (V45)
 
-- `public/`: tienda y recursos (logos, ilustraciones, animaciones).
-- `admin/`: acceso y panel de control.
-- `server/`: API, almacenamiento, cotizaciones y reglas comerciales.
-- `db/`: esquema y migraciones PostgreSQL.
-- `data/`: catálogo inicial y datos locales (parte excluida de Git).
-- `scripts/`: pruebas, importación CSV y respaldo.
+Desde **Administración → Escaparate comercial** se configura por sucursal:
+
+- **Categorías visibles en Mi tienda:** añadir y quitar fichas, modificar su destino, su texto y su imagen, y cambiar el orden. Esto afecta a los accesos directos de la portada de sucursal, **no elimina las categorías de PostgreSQL ni sus productos**.
+- **Marcas y logotipos:** activar y desactivar marcas, añadir archivos PNG/JPG/WebP pequeños (se comprimen antes del guardado) o usar URLs HTTPS. No requiere un servidor de subida de archivos adicional: las imágenes comprimidas se guardan en el estado de configuración. Se recomienda usar URLs HTTPS para catálogos grandes de logotipos.
+- **Producto destacado de Promociones:** mostrar el de mayor descuento, el de menor precio con descuento, seleccionar un producto publicado, u ocultar el bloque; el precio procede de la sucursal activa. El título, la imagen y el degradado se pueden editar.
+
+Los cambios se guardan en `lf_commerce_state` cuando `DATABASE_URL` está configurada. El formato anterior es compatible: cuando no existe configuración V45 se conservan las fichas y las marcas predeterminadas.
+
+## Presentación de promociones (V46)
+
+- **Mi tienda → Los más buscados:** el carrusel aprovecha casi todo el ancho de la ventana; muestra cinco artículos simultáneos en pantallas amplias y se adapta a móviles.
+- **Promociones:** el escaparate destacado tiene un ancho mayor y una distribución de texto, precio e imagen que aprovecha mejor el espacio central.
+- **Admin → Escaparate comercial → Producto protagonista en Promociones:** permite cambiar el degradado, la palabra decorativa de fondo y su color, además de la imagen ambiental, opacidad y posición. Las opciones se guardan por sucursal, sin modificar el precio real del catálogo.
+- Para usar una imagen del proyecto, selecciona una de las rutas sugeridas en el campo de imagen ambiental. Para desactivar el efecto de la fotografía, establece la opacidad en `0`.
+
+El módulo conserva los valores de configuración existentes y es compatible con los banners anteriores. No requiere migraciones SQL nuevas.

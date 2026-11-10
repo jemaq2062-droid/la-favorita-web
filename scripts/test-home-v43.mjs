@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {readFileSync,mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const base=new URL('../',import.meta.url);
+const read=file=>readFileSync(new URL(file,base),'utf8');
+const publicJs=read('public/site.js'),css=read('public/styles.css'),admin=read('admin/admin.js'),server=read('server/index.mjs');
+assert(publicJs.includes('homeSectionStyle()'),'La sección debe utilizar la configuración del fondo');
+assert(publicJs.includes('lf43-service-visual'),'Falta composición visual de servicios');
+assert(css.includes('--lf43-image-opacity')&&css.includes('--lf43-overlay-opacity'),'Faltan controles de opacidad');
+assert(css.includes('lfhr-heading[data-lfhr-state] .lfhr-word'),'Los títulos deben aparecer sin espera');
+assert(admin.includes("['homevisual','Ambiente de secciones'"),'Falta navegación de ambiente');
+assert(admin.includes("form.id==='home-visual-form'"),'Falta guardado desde el administrador');
+assert(server.includes('/api/admin/home-section-visual/'),'Falta ruta protegida');
+const dir=mkdtempSync(join(tmpdir(),'laf43-test-'));
+try{
+ process.env.COMMERCE_DATA_FILE=join(dir,'config.json');
+ const {CommerceStore}=await import('../server/commerce.mjs');
+ const store=new CommerceStore();await store.init();
+ const one=await store.homeVisual('sucursal-1');
+ assert(one.enabled&&one.imageUrl.endsWith('mochila-escolar-v30.png'),'Fondo inicial incorrecto');
+ await store.saveHomeVisual('sucursal-1',{...one,imageOpacity:0.2,overlayOpacity:0.7,gradientStart:'#103f45',gradientEnd:'#64225d',position:'left'});
+ const saved=await store.homeVisual('sucursal-1');
+ assert.equal(saved.gradientStart,'#103f45');assert.equal(saved.imageOpacity,0.2);
+ const other=await store.homeVisual('sucursal-2');
+ assert.equal(other.gradientStart,'#352344','No se deben mezclar sucursales');
+ const second=new CommerceStore();await second.init();
+ assert.equal((await second.homeVisual('sucursal-1')).gradientEnd,'#64225d','Los cambios deben persistir');
+}finally{rmSync(dir,{recursive:true,force:true});}
+console.log('OK V43: fondo editable, opacidad, títulos inmediatos y persistencia por sucursal.');

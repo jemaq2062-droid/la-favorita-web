@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const site=readFileSync(new URL('../public/site.js',import.meta.url),'utf8');
+const css=readFileSync(new URL('../public/styles.css',import.meta.url),'utf8');
+const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+assert(site.includes('lf47-novelties-section'));
+assert(site.includes('lf47-preview-section'));
+assert(site.includes('products.filter(p=>p.isNew).slice(0,10)'));
+assert(site.includes('cards(products.slice(12,22))'));
+assert(css.includes('.lf47-novelties-section .lf8-product-track>.lfpr-slot'));
+assert(css.includes('calc((100% - 64px)/5)'));
+assert(css.includes('.lf47-preview-section>.products-grid:not(.lf8-product-track)'));
+assert(css.includes('grid-template-columns:repeat(5,minmax(0,1fr))'));
+assert(css.includes('grid-template-columns:repeat(2,minmax(0,1fr))'));
+assert(html.includes('v=47-escaparate'));
+console.log('OK V47: novedades y vista previa ocupan el ancho disponible, 5 columnas y respuesta móvil.');

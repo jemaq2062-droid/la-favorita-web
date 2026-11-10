@@ -37,7 +37,7 @@ export function mountMotion(){
   }
 
   if(allowMotion&&fine()){
-    document.querySelectorAll('.branch-card,.product-card,.quick-tool').forEach(el=>{
+    document.querySelectorAll('.branch-card,.quick-tool').forEach(el=>{
       let raf=0;
       const move=e=>{
         const r=el.getBoundingClientRect();
@@ -216,7 +216,6 @@ function create3DScene(canvas){
 }
 
 
-// V8 · capas de papelería, carruseles accesibles y microinteracciones.
 // Sólo manipula el DOM público. No modifica rutas, API, autenticación ni datos.
 function mountV8Extras({allowMotion,finePointer}){
   const off=[];

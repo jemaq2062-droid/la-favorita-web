@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { gzipSync } from 'node:zlib';
 import { randomBytes, createHmac, createHash, timingSafeEqual } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, normalize, resolve, sep, dirname, join } from 'node:path';
@@ -21,6 +22,7 @@ const TOKEN_SECRET=process.env.SESSION_SECRET||randomBytes(32).toString('hex');
 const sessions=new Map();
 const attempts=new Map();
 const aiAttempts=new Map();
+const compressionMime=/^(?:text\/|application\/(?:json|javascript))/;
 const contentTypes={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.ico':'image/x-icon','.webp':'image/webp','.woff2':'font/woff2'};
 let store=await createStore();
 const commerce=new CommerceStore(store.pool||null);await commerce.init();
@@ -32,7 +34,7 @@ function broadcastBranches(){
 }
 
 
-function send(res,status,data,headers={}){const body=typeof data==='string'?data:JSON.stringify(data);res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers});res.end(body);}
+function send(res,status,data,headers={}){const body=typeof data==='string'?data:JSON.stringify(data);const zip=body.length>1300&&/\bgzip\b/.test(res.req?.headers['accept-encoding']||'');res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Vary':[res.getHeader('Vary'),'Accept-Encoding'].filter(Boolean).join(', '),...(zip?{'Content-Encoding':'gzip'}:{}),...headers});res.end(zip?gzipSync(body):body);}
 function bad(res,status,message){send(res,status,{error:message});}
 function parseCookies(req){return Object.fromEntries((req.headers.cookie||'').split(';').map(x=>x.trim().split('=')).filter(x=>x.length>=2));}
 function digest(v){return createHash('sha256').update(String(v)).digest();}
@@ -59,6 +61,51 @@ function originOkay(req){
 }
 function fields(obj,keys){return Object.fromEntries(keys.filter(k=>Object.hasOwn(obj,k)).map(k=>[k,obj[k]]));}
 function cleanStr(value,max=280){return String(value??'').trim().slice(0,max);}
+function normalizeFeatureList(value){
+  const raw=Array.isArray(value)?value.join('\n'):String(value??'');
+  return raw.split(/[,\n]+/).map(x=>cleanStr(x,50)).filter(Boolean).slice(0,4);
+}
+function cleanHeroPrice(value){
+ const original=String(value??'').trim();
+ if(!original)return '';
+ const parsed=Number(original.replace(/^S\/?\s*/i,'').replace(',','.'));
+ if(!Number.isFinite(parsed)||parsed<=0||parsed>999999)throw Error('El precio del banner debe ser mayor que cero y tener un formato válido');
+ return String(Math.round(parsed*100)/100);
+}
+function heroPriceFields(body){
+ const priceOverride=cleanHeroPrice(body.priceOverride),compareAtOverride=cleanHeroPrice(body.compareAtOverride);
+ if(priceOverride&&compareAtOverride&&Number(compareAtOverride)<=Number(priceOverride))throw Error('El precio anterior debe ser mayor que el precio actual');
+ if(compareAtOverride&&!priceOverride&&!cleanStr(body.productId,100))throw Error('Para indicar un precio anterior, configura un precio actual o vincula un producto');
+ return {priceOverride,compareAtOverride};
+}
+function safeHeroBackdrop(value){
+ const raw=cleanStr(value,1800);
+ if(!raw)return '';
+ if(/^\/assets\/(?:editorial|categories|products)\/[a-z0-9_.-]+\.(?:png|webp|jpe?g|svg)$/i.test(raw))return raw;
+ try{const u=new URL(raw);if(u.protocol==='https:'&&!u.username&&!u.password)return u.href;}catch{}
+ throw Error('Imagen de fondo inválida: usa una ruta del proyecto o URL HTTPS');
+}
+function heroVisualFields(body){
+ const colors={};
+ for(const key of ['gradientStart','gradientMid','gradientEnd','priceCardColor','secondaryCardColor']){
+  const raw=cleanStr(body[key],7);
+  if(raw&&!/^#[0-9a-f]{6}$/i.test(raw))throw Error('Color inválido: '+key);
+  colors[key]=raw;
+ }
+ const text=cleanStr(body.expiresAt,60);
+ let expiresAt='';
+ if(text){const d=Date.parse(text);if(!Number.isFinite(d))throw Error('Fecha de finalización inválida');expiresAt=new Date(d).toISOString();}
+ let raw=body.extraCards||[];
+ if(typeof raw==='string'){try{raw=JSON.parse(raw)}catch{throw Error('Tarjetas adicionales inválidas')}}
+ if(!Array.isArray(raw)||raw.length>4)throw Error('Máximo 4 tarjetas adicionales');
+ const extraCards=raw.map(card=>({title:cleanStr(card.title,45),detail:cleanStr(card.detail,100),enabled:card.enabled!==false})).filter(x=>x.title||x.detail);
+ const opacity=body.backgroundImageOpacity===''||body.backgroundImageOpacity==null ? .46 : Number(body.backgroundImageOpacity);
+ if(!Number.isFinite(opacity)||opacity<0||opacity>1)throw Error('La opacidad del fondo debe estar entre 0 y 1');
+ const backgroundImagePosition=cleanStr(body.backgroundImagePosition,10)||'center';
+ if(!['left','center','right'].includes(backgroundImagePosition))throw Error('Posición de fondo inválida');
+ return {...colors,expiresAt,extraCards,showPriceCard:body.showPriceCard!==false,showSecondaryCard:body.showSecondaryCard!==false,showFeatures:body.showFeatures!==false,showCountdown:body.showCountdown!==false,
+  backgroundImageEnabled:body.backgroundImageEnabled!==false,backgroundImageUrl:safeHeroBackdrop(body.backgroundImageUrl),backgroundImageOpacity:opacity,backgroundImagePosition};
+}
 function checkedColor(v){return /^#[a-f0-9]{6}$/i.test(v||'')?v:'#f026ad';}
 function nextSku(state,categoryId,name){
   const c={escritura:'ESC',cuadernos:'CUA',papel:'PAP',oficina:'OFI',pegamentos:'PEG',arte:'ART',tecnologia:'TEC',servicios:'SRV'}[categoryId]||'PRO';
@@ -84,6 +131,13 @@ function nextSku(state,categoryId,name){
 }
 
 function safeImage(v){let s=cleanStr(v,1800);if(!s)return '';if(/^\/assets\/(?:editorial|products)\/[a-z0-9_.-]+\.(?:png|webp|jpg|jpeg|svg)$/i.test(s))return s;try{const u=new URL(s);return ['https:','http:'].includes(u.protocol)?u.href:'';}catch{return '';}}
+function badRequest(message){const error=new Error(message);error.status=400;return error;}
+function safeHomeMedia(value){
+ const u=String(value||'');
+ if(/^\/assets\/(?:categories|editorial|products|brands)\/[a-z0-9_.-]+\.(?:png|webp|jpg|jpeg|svg)$/i.test(u))return true;
+ try{const url=new URL(u);return url.protocol==='https:'&&!/[\s'"<>\\]/.test(u);}catch{return false;}
+}
+function safeBrandImage(value){return safeHomeMedia(value)||/^data:image\/(?:webp|png|jpeg);base64,[a-zA-Z0-9+/=]{100,75000}$/.test(String(value));}
 function money(x){return Math.round(Number(x)*100)/100;}
 function int(x,min=0,max=999999){let n=Number(x);if(!Number.isFinite(n))throw new Error('Número inválido');return Math.min(max,Math.max(min,Math.floor(n)));}
 function isCurrent(c){
@@ -105,8 +159,9 @@ async function serveFile(res,base,path){
   try{
     const f=await stat(p);if(!f.isFile())return bad(res,404,'No existe');
     const body=await readFile(p);
-    res.writeHead(200,{'Content-Type':contentTypes[extname(p)]||'application/octet-stream','Cache-Control':['.html','.css','.js'].includes(extname(p))?'no-store':'public, max-age=3600','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"});
-    return res.end(body);
+    const mime=contentTypes[extname(p)]||'application/octet-stream';const zip=body.length>1300&&compressionMime.test(mime)&&/\bgzip\b/.test(res.req?.headers['accept-encoding']||'');
+    res.writeHead(200,{'Content-Type':mime,'Cache-Control':['.html'].includes(extname(p))?'no-store':['.css','.js'].includes(extname(p))?'public, max-age=300':'public, max-age=3600','Vary':'Accept-Encoding',...(zip?{'Content-Encoding':'gzip'}:{}),'X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"});
+    return res.end(zip?gzipSync(body):body);
   }catch{return bad(res,404,'Archivo no encontrado');}
 }
 async function api(req,res,pathname){
@@ -154,7 +209,7 @@ async function api(req,res,pathname){
   }
   if(method==='GET'&&pathname==='/api/version'){const s=await store.read(),c=await commerce.config();return send(res,200,{version:`${s.version}-${c.revision||0}`});}
   if(method==='GET'&&pathname==='/api/bootstrap'){const s=await store.read(),c=await commerce.config();const branches=await Promise.all(s.branches.filter(b=>b.active).sort((a,b)=>a.order-b.order).map(async b=>({...b,cardStyle:await commerce.cardStyle(b.id)})));return send(res,200,{version:`${s.version}-${c.revision||0}`,settings:s.settings,branches,categories:s.categories});}
-  if(method==='GET'&&pathname.startsWith('/api/store/')){const s=await store.read();const id=decodeURIComponent(pathname.slice('/api/store/'.length));const timed=(await commerce.listOffers()).filter(t=>t.branchId===id);const payload=viewForBranch(s,id,timed);return payload?send(res,200,{...payload,branchTheme:await commerce.theme(id),heroSlides:await commerce.slides(id),heroIntervalSeconds:await commerce.interval(id),quoteFeatures:{code:true}}):bad(res,404,'Sucursal no disponible');}
+  if(method==='GET'&&pathname.startsWith('/api/store/')){const s=await store.read();const id=decodeURIComponent(pathname.slice('/api/store/'.length));const timed=(await commerce.listOffers()).filter(t=>t.branchId===id);const payload=viewForBranch(s,id,timed);return payload?send(res,200,{...payload,branchTheme:await commerce.theme(id),heroSlides:await commerce.slides(id,{publicOnly:true}),heroIntervalSeconds:await commerce.interval(id),homeSectionVisual:await commerce.homeVisual(id),homeTiles:await commerce.homeTiles(id),brandMarquee:await commerce.brandMarquee(id),promoSpotlight:await commerce.promoSpotlight(id),quoteFeatures:{code:true}}):bad(res,404,'Sucursal no disponible');}
   if(method==='POST'&&pathname==='/api/auth/login'){
     const ip=req.socket.remoteAddress||'local';const old=attempts.get(ip)||{count:0,until:0};if(old.until>Date.now())return bad(res,429,'Demasiados intentos. Intenta más tarde.');
     if(!ADMIN_PASSWORD)return bad(res,503,'Configura ADMIN_PASSWORD en el servidor');
@@ -174,7 +229,52 @@ async function api(req,res,pathname){
   if(!validSession(req))return bad(res,401,'Inicia sesión en el panel');
   if(method!=='GET'&&!originOkay(req))return bad(res,403,'Origen no autorizado');
   if(method==='GET'&&pathname==='/api/admin/commerce'){
-    const s=await store.read(),c=await commerce.config();return send(res,200,{rates:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.rates(b.id)]))),timeOffers:c.timeOffers||[],quotes:await commerce.quotes(),branchThemes:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.theme(b.id)]))),heroSlides:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.slides(b.id)]))),heroIntervals:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.interval(b.id)]))),branchCardStyles:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.cardStyle(b.id)])))});
+    const s=await store.read(),c=await commerce.config();return send(res,200,{rates:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.rates(b.id)]))),timeOffers:c.timeOffers||[],quotes:await commerce.quotes(),branchThemes:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.theme(b.id)]))),heroSlides:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.slides(b.id)]))),heroIntervals:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.interval(b.id)]))),branchCardStyles:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.cardStyle(b.id)]))),homeSectionVisuals:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.homeVisual(b.id)]))),homeTiles:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.homeTiles(b.id)]))),brandMarquees:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.brandMarquee(b.id)]))),promoSpotlights:Object.fromEntries(await Promise.all(s.branches.map(async b=>[b.id,await commerce.promoSpotlight(b.id)])))});
+  }
+  if(method==='PUT'&&pathname.startsWith('/api/admin/home-tiles/')){
+    const branchId=decodeURIComponent(pathname.slice('/api/admin/home-tiles/'.length)),state=await store.read();
+    if(!state.branches.some(b=>b.id===branchId))return bad(res,404,'Sucursal inválida');
+    const body=await jsonBody(req);
+    if(!Array.isArray(body.tiles)||body.tiles.length>16)return bad(res,400,'Se permiten hasta 16 fichas');
+    const categories=new Set(state.categories.map(c=>c.id));
+    const tiles=body.tiles.map(row=>{
+      const route=cleanStr(row.route,100),label=cleanStr(row.label,55),caption=cleanStr(row.caption,65),imageUrl=cleanStr(row.imageUrl,1600);
+      if(!label||!(categories.has(route.replace(/^categoria:/,''))&&route.startsWith('categoria:'))&&!['servicios','especiales','ofertas','catalogo'].includes(route))throw badRequest('Elige una categoría o un destino válido');
+      if(imageUrl&&!safeHomeMedia(imageUrl))throw badRequest('Imagen de categoría no válida');
+      return {route,label,caption,imageUrl,enabled:row.enabled!==false};
+    });
+    return send(res,200,{ok:true,tiles:await commerce.saveHomeTiles(branchId,tiles)});
+  }
+  if(method==='PUT'&&pathname.startsWith('/api/admin/brand-marquee/')){
+    const branchId=decodeURIComponent(pathname.slice('/api/admin/brand-marquee/'.length)),state=await store.read();
+    if(!state.branches.some(b=>b.id===branchId))return bad(res,404,'Sucursal inválida');
+    const body=await jsonBody(req,1500000);
+    if(!Array.isArray(body.items)||body.items.length>24)return bad(res,400,'Máximo 24 marcas');
+    const items=body.items.map(row=>{const name=cleanStr(row.name,65),imageUrl=cleanStr(row.imageUrl,85000);if(!name||imageUrl&&!safeBrandImage(imageUrl))throw badRequest('Nombre o logo no válido');return {name,imageUrl,enabled:row.enabled!==false};});
+    return send(res,200,{ok:true,items:await commerce.saveBrandMarquee(branchId,items)});
+  }
+  if(method==='PUT'&&pathname.startsWith('/api/admin/promo-spotlight/')){
+    const branchId=decodeURIComponent(pathname.slice('/api/admin/promo-spotlight/'.length)),state=await store.read();
+    if(!state.branches.some(b=>b.id===branchId))return bad(res,404,'Sucursal inválida');
+    const body=await jsonBody(req),mode=cleanStr(body.mode,25);
+    if(!['hidden','max-discount','lowest','manual'].includes(mode))return bad(res,400,'Modo inválido');
+    const productId=cleanStr(body.productId,100);
+    if(mode==='manual'&&!state.products.some(x=>x.id===productId))return bad(res,400,'Selecciona un producto del catálogo');
+    const gradientStart=cleanStr(body.gradientStart,7),gradientEnd=cleanStr(body.gradientEnd,7);
+    if(!/^#[0-9a-f]{6}$/i.test(gradientStart)||!/^#[0-9a-f]{6}$/i.test(gradientEnd))return bad(res,400,'Colores inválidos');
+    const imageUrl=cleanStr(body.imageUrl,1600);if(imageUrl&&!safeHomeMedia(imageUrl))return bad(res,400,'Imagen no válida');
+    const previous=await commerce.promoSpotlight(branchId);
+    const backgroundImageUrl=cleanStr(body.backgroundImageUrl??previous.backgroundImageUrl,1600);
+    if(backgroundImageUrl&&!safeHomeMedia(backgroundImageUrl))return bad(res,400,'La imagen de fondo no es válida');
+    const backgroundOpacity=Number(body.backgroundOpacity??previous.backgroundOpacity);
+    if(!Number.isFinite(backgroundOpacity)||backgroundOpacity<0||backgroundOpacity>0.65)return bad(res,400,'La opacidad debe estar entre 0 y 0.65');
+    const backgroundPosition=cleanStr(body.backgroundPosition??previous.backgroundPosition,10);
+    if(!['left','center','right'].includes(backgroundPosition))return bad(res,400,'Posición de fondo inválida');
+    const ambientText=cleanStr(body.ambientText??previous.ambientText,18);
+    const ambientColor=cleanStr(body.ambientColor??previous.ambientColor,7);
+    if(!/^#[0-9a-f]{6}$/i.test(ambientColor))return bad(res,400,'Color de letras inválido');
+    const settings={mode,productId,headline:cleanStr(body.headline,110),description:cleanStr(body.description,250),badge:cleanStr(body.badge,45),gradientStart,gradientEnd,imageUrl,backgroundImageUrl,backgroundOpacity,backgroundPosition,ambientText,ambientColor};
+    return send(res,200,{ok:true,settings:await commerce.savePromoSpotlight(branchId,settings)});
   }
   if(method==='PUT'&&pathname.startsWith('/api/admin/branch-card-style/')){
     const id=decodeURIComponent(pathname.slice('/api/admin/branch-card-style/'.length)),state=await store.read();
@@ -191,9 +291,26 @@ async function api(req,res,pathname){
   if(method==='PUT'&&pathname.startsWith('/api/admin/branch-theme/')){
     const id=decodeURIComponent(pathname.slice('/api/admin/branch-theme/'.length)),s=await store.read();
     if(!s.branches.some(b=>b.id===id))return bad(res,404,'Sucursal inválida');
-    const body=await jsonBody(req);const allowed=['bg','surface','surface2','surface3','pink','teal','lav','accentPink','accentTeal'];
+    const body=await jsonBody(req);const allowed=['bg','surface','surface2','surface3','pink','teal','lav','accentPink','accentTeal','text','muted','gradientStart','gradientEnd'];
     if(allowed.some(k=>typeof body[k]!=='string'||!/^#[0-9a-f]{6}$/i.test(body[k])))return bad(res,400,'Los colores deben tener formato hexadecimal #RRGGBB');
     return send(res,200,{ok:true,theme:await commerce.saveTheme(id,Object.fromEntries(allowed.map(k=>[k,body[k]])))});
+  }
+  if(method==='PUT'&&pathname.startsWith('/api/admin/home-section-visual/')){
+    const id=decodeURIComponent(pathname.slice('/api/admin/home-section-visual/'.length)),state=await store.read();
+    if(!state.branches.some(b=>b.id===id))return bad(res,404,'Sucursal inválida');
+    const body=await jsonBody(req);
+    const imageUrl=cleanStr(body.imageUrl,1600);
+    const local=/^\/assets\/(?:editorial|categories)\/[a-z0-9_.-]+\.(?:png|webp|jpg|jpeg|svg)$/i.test(imageUrl);
+    let remote=false;
+    if(!local && imageUrl){try{const uri=new URL(imageUrl);remote=uri.protocol==='https:'&&!/[\'\"\\]/.test(imageUrl);}catch{}}
+    if(imageUrl&&!local&&!remote)return bad(res,400,'Elige una imagen del catálogo o una URL HTTPS válida');
+    const opacity=Number(body.imageOpacity),overlayOpacity=Number(body.overlayOpacity);
+    if(!Number.isFinite(opacity)||opacity<0||opacity>1||!Number.isFinite(overlayOpacity)||overlayOpacity<0||overlayOpacity>1)return bad(res,400,'Opacidad fuera de rango');
+    const gradientStart=cleanStr(body.gradientStart,7),gradientEnd=cleanStr(body.gradientEnd,7);
+    if(!/^#[0-9a-f]{6}$/i.test(gradientStart)||!/^#[0-9a-f]{6}$/i.test(gradientEnd))return bad(res,400,'Colores inválidos');
+    const position=cleanStr(body.position,10);
+    if(!['left','center','right'].includes(position))return bad(res,400,'Posición no válida');
+    return send(res,200,{ok:true,visual:await commerce.saveHomeVisual(id,{enabled:body.enabled===true,imageUrl,imageOpacity:opacity,overlayOpacity,gradientStart,gradientEnd,position})});
   }
   if(method==='PUT'&&pathname.startsWith('/api/admin/hero-interval/')){
     const id=decodeURIComponent(pathname.slice('/api/admin/hero-interval/'.length)),s=await store.read();
@@ -206,7 +323,8 @@ async function api(req,res,pathname){
     const body=await jsonBody(req),s=await store.read(),branchId=cleanStr(body.branchId,100);
     if(!s.branches.some(b=>b.id===branchId))return bad(res,404,'Sucursal inválida');
     const existing=await commerce.slides(branchId);if(existing.length>=16)return bad(res,400,'Máximo 16 banners por sucursal');
-    const item={id:'hero-'+randomBytes(5).toString('hex'),eyebrow:cleanStr(body.eyebrow,100),title:cleanStr(body.title,140),description:cleanStr(body.description,380),cta:cleanStr(body.cta,60)||'Ver productos',destination:body.destination||'catalogo',imageUrl:safeImage(body.imageUrl),accent:checkedColor(body.accent),background:cleanStr(body.background,50)||'escolar',enabled:body.enabled!==false};
+    const selectedProduct=cleanStr(body.productId,100);if(selectedProduct&&!s.products.some(p=>p.id===selectedProduct))return bad(res,400,'Producto destacado no existe');
+    const item={id:'hero-'+randomBytes(5).toString('hex'),eyebrow:cleanStr(body.eyebrow,100),title:cleanStr(body.title,140),description:cleanStr(body.description,380),cta:cleanStr(body.cta,60)||'Ver productos',destination:body.destination||'catalogo',imageUrl:safeImage(body.imageUrl),accent:checkedColor(body.accent),background:cleanStr(body.background,50)||'escolar',productId:selectedProduct,marqueeText:cleanStr(body.marqueeText,40),featureList:normalizeFeatureList(body.featureList),...heroPriceFields(body),priceKicker:cleanStr(body.priceKicker,50),priceCaption:cleanStr(body.priceCaption,140),priceTag:cleanStr(body.priceTag,50),...heroVisualFields(body),enabled:body.enabled!==false};
     if(!item.title||!item.imageUrl||!['catalogo','ofertas','especiales','campanas','novedades'].includes(item.destination))return bad(res,400,'Completa título, imagen válida y destino');
     await commerce.putSlide(branchId,item);return send(res,201,{ok:true,item});
   }
@@ -215,7 +333,8 @@ async function api(req,res,pathname){
     if(!s.branches.some(b=>b.id===branchId))return bad(res,404,'Sucursal inválida');
     const prev=(await commerce.slides(branchId)).find(x=>x.id===id);if(!prev)return bad(res,404,'Banner no encontrado');
     if(method==='DELETE'){await commerce.deleteSlide(branchId,id);return send(res,200,{ok:true});}
-    const item={...prev,eyebrow:cleanStr(body.eyebrow,100),title:cleanStr(body.title,140),description:cleanStr(body.description,380),cta:cleanStr(body.cta,60)||'Ver productos',destination:body.destination||'catalogo',imageUrl:safeImage(body.imageUrl),accent:checkedColor(body.accent),background:cleanStr(body.background,50)||'escolar',enabled:body.enabled!==false};
+    const selectedProduct=cleanStr(body.productId,100);if(selectedProduct&&!s.products.some(p=>p.id===selectedProduct))return bad(res,400,'Producto destacado no existe');
+    const item={...prev,eyebrow:cleanStr(body.eyebrow,100),title:cleanStr(body.title,140),description:cleanStr(body.description,380),cta:cleanStr(body.cta,60)||'Ver productos',destination:body.destination||'catalogo',imageUrl:safeImage(body.imageUrl),accent:checkedColor(body.accent),background:cleanStr(body.background,50)||'escolar',productId:selectedProduct,marqueeText:cleanStr(body.marqueeText,40),featureList:normalizeFeatureList(body.featureList),...heroPriceFields(body),priceKicker:cleanStr(body.priceKicker,50),priceCaption:cleanStr(body.priceCaption,140),priceTag:cleanStr(body.priceTag,50),...heroVisualFields(body),enabled:body.enabled!==false};
     if(!item.title||!item.imageUrl||!['catalogo','ofertas','especiales','campanas','novedades'].includes(item.destination))return bad(res,400,'Completa título, imagen válida y destino');
     await commerce.putSlide(branchId,item);return send(res,200,{ok:true,item});
   }
@@ -391,7 +510,7 @@ const server=http.createServer(async(req,res)=>{
     if(pathname==='/admin'||pathname==='/admin/'||pathname==='/admin/index.html')return await serveFile(res,ADMIN,'/index.html');
     if(pathname.startsWith('/admin/'))return await serveFile(res,ADMIN,pathname.slice('/admin'.length));
     if(pathname.startsWith('/assets/'))return await serveFile(res,PUBLIC,pathname);
-    if(['/styles.css','/site.js','/experience-v7.js','/visual-v9.js','/motion-v10.js','/gateway-focus.js','/gateway-data.js','/home-reveal.js','/product-reveal.js','/gateway-water.js','/restore-extras.js','/floating-background.js','/branch-hero-carousel.js','/banner-motion.js'].includes(pathname))return await serveFile(res,PUBLIC,pathname);
+    if(['/styles.css','/site.js','/experience-v7.js','/visual-v9.js','/motion-v10.js','/gateway-focus.js','/gateway-data.js','/home-reveal.js','/product-reveal.js','/gateway-water.js','/restore-extras.js','/floating-background.js','/branch-hero-carousel.js','/banner-motion.js','/hero-pricing.js'].includes(pathname))return await serveFile(res,PUBLIC,pathname);
     if(pathname==='/'||pathname.startsWith('/tienda/'))return await serveFile(res,PUBLIC,'/index.html');
     return bad(res,404,'Página no encontrada');
   }catch(error){console.error('[La Favorita]',error);return bad(res, error.status||(/obligatori|inválid|incorrect|demasiad|esperab|no puede|necesita|no existe|debe|sucursal|modalidad|máximo|archivo/i.test(error.message)?400:500),error.message||'Error interno');}

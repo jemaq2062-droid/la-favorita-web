@@ -150,7 +150,7 @@ function mountCylinder({allowMotion}){
   schedule();
  }
  on(track,'pointerdown',e=>{
-  if(!allowMotion||count<2||drag||e.pointerType==='mouse'&&e.button!==0)return;
+  if(!allowMotion||count<2||drag||e.pointerType==='touch'||e.pointerType==='mouse'&&e.button!==0)return;
   drag={id:e.pointerId,startX:e.clientX,startY:e.clientY,dx:0,active:false,vertical:false};
  });
  on(track,'pointermove',e=>{
@@ -172,6 +172,38 @@ function mountCylinder({allowMotion}){
  on(track,'pointercancel',e=>{if(drag&&drag.id===e.pointerId)abortDrag(false);});
  on(track,'lostpointercapture',e=>{if(drag&&drag.id===e.pointerId)abortDrag(false);});
  on(track,'pointerleave',e=>{if(drag&&!drag.active&&e.pointerType==='mouse')abortDrag(false);});
+ // Native touch gestures are handled independently because mobile browsers can
+ // cancel pointer sequences while deciding whether to scroll the document.
+ let touchStart=null;
+ const swipeLimit=()=>Math.min(72,Math.max(36,track.clientWidth*.095));
+ on(track,'touchstart',e=>{
+  if(!allowMotion||count<2||e.touches.length!==1)return;
+  const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY,dx:0,horizontal:false,vertical:false};
+ },{passive:true});
+ on(track,'touchmove',e=>{
+  if(!touchStart||e.touches.length!==1)return;
+  const t=e.touches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;
+  if(!touchStart.horizontal&&!touchStart.vertical){
+   if(Math.abs(dy)>10&&Math.abs(dy)>Math.abs(dx)*1.1){touchStart.vertical=true;return;}
+   if(Math.abs(dx)>9&&Math.abs(dx)>Math.abs(dy)*1.1)touchStart.horizontal=true;
+  }
+  if(!touchStart.horizontal)return;
+  e.preventDefault();touchStart.dx=dx;
+  dragOffset=clamp(dx,-track.clientWidth*.75,track.clientWidth*.75);
+  track.classList.add('lf10-dragging');schedule();
+ },{passive:false});
+ const finishTouch=()=>{
+  if(!touchStart)return;
+  const {dx,horizontal}=touchStart;touchStart=null;
+  if(horizontal&&Math.abs(dx)>=swipeLimit()){
+   selected=norm(selected+(dx<0?1:-1));
+   suppressClickUntil=performance.now()+650;
+  }else if(horizontal){suppressClickUntil=performance.now()+350;}
+  dragOffset=0;track.classList.remove('lf10-dragging');schedule();
+ };
+ on(track,'touchend',finishTouch,{passive:true});
+ on(track,'touchcancel',()=>{touchStart=null;dragOffset=0;track.classList.remove('lf10-dragging');schedule();},{passive:true});
+
  on(window,'resize',schedule,{passive:true});
  place();
  return ()=>{

@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const file=process.env.COMMERCE_DATA_FILE||join(root,'data','commerce-v27.json');
 const defaultRate={copyBW:0.15,printBW:0.20,scanPage:0,copyColor:0,printColor:0,bulkAfter:100,bulkDiscount:0,duplexDiscount:0,coverageLow:0.20,coverageHigh:0.70,minColor:0,maxColor:0};
-const seed=()=>({rates:{},timeOffers:[],quotes:[],sequence:0,revision:0,branchThemes:{},heroSlides:{},heroIntervals:{},branchCardStyles:{}});
+const seed=()=>({rates:{},timeOffers:[],quotes:[],sequence:0,revision:0,branchThemes:{},heroSlides:{},heroIntervals:{},branchCardStyles:{},homeSectionVisuals:{},homeTiles:{},brandMarquees:{},promoSpotlights:{}});
 export const DEFAULT_CARD_STYLES={
  'sucursal-1':{logoUrl:'/assets/logo-favorita-transparente.png',borderColor:'#fa58b8'},
  'sucursal-2':{logoUrl:'/assets/logo-favorita-transparente.png',borderColor:'#46d7d9'},
@@ -12,18 +12,27 @@ export const DEFAULT_CARD_STYLES={
  'sucursal-4':{logoUrl:'/assets/logo-favorita-transparente.png',borderColor:'#ab95f5'}
 };
 export const DEFAULT_THEMES={
- 'sucursal-1':{bg:'#0a1d30',surface:'#152e45',surface2:'#1b3a55',surface3:'#234863',pink:'#ff51af',teal:'#4cdeed',lav:'#bc92ff',accentPink:'#ff2d95',accentTeal:'#24d1d9'},
- 'sucursal-2':{bg:'#211331',surface:'#34204b',surface2:'#493061',surface3:'#63417b',pink:'#ffc069',teal:'#9aebdd',lav:'#db9bfa',accentPink:'#ed9f5d',accentTeal:'#77d7c3'},
- 'sucursal-3':{bg:'#0c2549',surface:'#113d6c',surface2:'#1c5386',surface3:'#2e67a2',pink:'#fdd76e',teal:'#9be45b',lav:'#aa9eff',accentPink:'#f2c44b',accentTeal:'#75da47'},
- 'sucursal-4':{bg:'#27152a',surface:'#44213c',surface2:'#5d2b4a',surface3:'#7a3d61',pink:'#ff9a7c',teal:'#77e2b5',lav:'#e7a4f5',accentPink:'#f57c66',accentTeal:'#55d6a0'}
+ 'sucursal-1':{bg:'#0a1d30',surface:'#152e45',surface2:'#1b3a55',surface3:'#234863',pink:'#ff51af',teal:'#4cdeed',lav:'#bc92ff',accentPink:'#ff2d95',accentTeal:'#24d1d9',text:'#f8fbff',muted:'#cbd7e5',gradientStart:'#ff91c6',gradientEnd:'#60e3df'},
+ 'sucursal-2':{bg:'#211331',surface:'#34204b',surface2:'#493061',surface3:'#63417b',pink:'#ffc069',teal:'#9aebdd',lav:'#db9bfa',accentPink:'#ed9f5d',accentTeal:'#77d7c3',text:'#fff7f2',muted:'#ddd1e6',gradientStart:'#ffc16a',gradientEnd:'#9aebdd'},
+ 'sucursal-3':{bg:'#0c2549',surface:'#113d6c',surface2:'#1c5386',surface3:'#2e67a2',pink:'#fdd76e',teal:'#9be45b',lav:'#aa9eff',accentPink:'#f2c44b',accentTeal:'#75da47',text:'#f5fbff',muted:'#d0e2f2',gradientStart:'#fdd76e',gradientEnd:'#97e65b'},
+ 'sucursal-4':{bg:'#27152a',surface:'#44213c',surface2:'#5d2b4a',surface3:'#7a3d61',pink:'#ff9a7c',teal:'#77e2b5',lav:'#e7a4f5',accentPink:'#f57c66',accentTeal:'#55d6a0',text:'#fff9f5',muted:'#e4d4de',gradientStart:'#ffad8d',gradientEnd:'#79e1be'}
 };
 export const DEFAULT_HERO_SLIDES=[
- {id:'v31-arbol',eyebrow:'TEMPORADA NAVIDEÑA',title:'Una Navidad llena de ideas',description:'Decoración y detalles para compartir esta temporada.',cta:'Ver especiales',destination:'especiales',imageUrl:'/assets/editorial/arbol-navidad-sin-fondo.png',accent:'#fb6db3',background:'navidad',enabled:true},
- {id:'v31-resaltadores',eyebrow:'ESCRITURA Y COLOR',title:'Dale color a cada idea',description:'Resaltadores y artículos para estudiar con estilo.',cta:'Ver productos',destination:'catalogo',imageUrl:'/assets/editorial/resaltadores-v30.png',accent:'#31d4e4',background:'destacados',enabled:true},
- {id:'v31-mochila',eyebrow:'TODO PARA CLASES',title:'Prepárate para el nuevo ciclo',description:'Cuadernos, materiales y útiles para cada día.',cta:'Explorar catálogo',destination:'catalogo',imageUrl:'/assets/editorial/mochila-escolar-v30.png',accent:'#9bc8ff',background:'escolar',enabled:true},
- {id:'v31-navidad',eyebrow:'DETALLES ESPECIALES',title:'Momentos que se recuerdan',description:'Encuentra regalos y accesorios para celebrar.',cta:'Ver temporada',destination:'especiales',imageUrl:'/assets/editorial/navidad-decoracion-v30.png',accent:'#f3b16e',background:'navidad',enabled:true}
+ {id:'v31-arbol',eyebrow:'TEMPORADA NAVIDEÑA',title:'Una Navidad llena de ideas',description:'Decoración y detalles para compartir esta temporada.',cta:'Ver especiales',destination:'especiales',imageUrl:'/assets/editorial/arbol-navidad-sin-fondo.png',accent:'#fb6db3',background:'navidad',productId:'',enabled:true,marqueeText:'Navidad',featureList:['Decoración creativa','Detalles para regalar','Ideas de temporada']},
+ {id:'v31-resaltadores',eyebrow:'ESCRITURA Y COLOR',title:'Dale color a cada idea',description:'Resaltadores y artículos para estudiar con estilo.',cta:'Ver productos',destination:'catalogo',imageUrl:'/assets/editorial/resaltadores-v30.png',accent:'#31d4e4',background:'destacados',productId:'',enabled:true,marqueeText:'Color',featureList:['Resaltadores pastel','Tonos vibrantes','Estudio creativo']},
+ {id:'v31-mochila',eyebrow:'TODO PARA CLASES',title:'Prepárate para el nuevo ciclo',description:'Cuadernos, materiales y útiles para cada día.',cta:'Explorar catálogo',destination:'catalogo',imageUrl:'/assets/editorial/mochila-escolar-v30.png',accent:'#9bc8ff',background:'escolar',productId:'',enabled:true,marqueeText:'Escolar',featureList:['Mochilas y cuadernos','Ideas para cada curso','Todo en un solo lugar']},
+ {id:'v31-navidad',eyebrow:'DETALLES ESPECIALES',title:'Momentos que se recuerdan',description:'Encuentra regalos y accesorios para celebrar.',cta:'Ver temporada',destination:'especiales',imageUrl:'/assets/editorial/navidad-decoracion-v30.png',accent:'#f3b16e',background:'navidad',productId:'',enabled:true,marqueeText:'Regalos',featureList:['Adornos y detalles','Regalos creativos','Temporada vigente']}
 ];
 
+export const DEFAULT_HOME_SECTION_VISUAL={
+ enabled:true,
+ imageUrl:'/assets/editorial/mochila-escolar-v30.png',
+ imageOpacity:0.36,
+ overlayOpacity:0.78,
+ gradientStart:'#352344',
+ gradientEnd:'#133a4d',
+ position:'right'
+};
 const copy=v=>structuredClone(v);
 export class CommerceStore{
  constructor(pool=null){this.pool=pool;this.data=seed();this.queue=Promise.resolve();}
@@ -45,12 +54,25 @@ export class CommerceStore{
  async saveCardStyle(branchId,style){await this.change(state=>{state.branchCardStyles||={};state.branchCardStyles[branchId]={...style};});return this.cardStyle(branchId);}
  async theme(branchId){const state=await this.config();return {...(DEFAULT_THEMES[branchId]||DEFAULT_THEMES['sucursal-1']),...(state.branchThemes?.[branchId]||{})};}
  async saveTheme(branchId,theme){await this.change(state=>{state.branchThemes||={};state.branchThemes[branchId]={...theme};});return this.theme(branchId);}
- async slides(branchId){const state=await this.config();return copy(Array.isArray(state.heroSlides?.[branchId])?state.heroSlides[branchId]:DEFAULT_HERO_SLIDES);}
+ async slides(branchId,{publicOnly=false,now=Date.now()}={}){
+  const state=await this.config();
+  const records=copy(Array.isArray(state.heroSlides?.[branchId])?state.heroSlides[branchId]:DEFAULT_HERO_SLIDES);
+  if(!publicOnly)return records;
+  return records.filter(x=>x.enabled!==false&&(!x.expiresAt||Date.parse(x.expiresAt)>now));
+ }
  async interval(branchId){const state=await this.config();return Number(state.heroIntervals?.[branchId])||6;}
  async saveInterval(branchId,seconds){await this.change(state=>{state.heroIntervals||={};state.heroIntervals[branchId]=seconds;});return seconds;}
  async putSlide(branchId,slide){await this.change(state=>{state.heroSlides||={};let list=Array.isArray(state.heroSlides[branchId])?state.heroSlides[branchId]:copy(DEFAULT_HERO_SLIDES);const index=list.findIndex(x=>x.id===slide.id);if(index>=0)list[index]=slide;else list.push(slide);state.heroSlides[branchId]=list;});return slide;}
  async deleteSlide(branchId,id){await this.change(state=>{state.heroSlides||={};let list=Array.isArray(state.heroSlides[branchId])?state.heroSlides[branchId]:copy(DEFAULT_HERO_SLIDES);state.heroSlides[branchId]=list.filter(x=>x.id!==id);});}
  async reorderSlides(branchId,ids){await this.change(state=>{state.heroSlides||={};let list=Array.isArray(state.heroSlides[branchId])?state.heroSlides[branchId]:copy(DEFAULT_HERO_SLIDES);state.heroSlides[branchId]=ids.map(id=>list.find(x=>x.id===id)).filter(Boolean);});}
+ async homeVisual(branchId){const s=await this.config();return {...DEFAULT_HOME_SECTION_VISUAL,...s.homeSectionVisuals?.[branchId]};}
+ async saveHomeVisual(branchId,visual){await this.change(s=>{s.homeSectionVisuals||={};s.homeSectionVisuals[branchId]={...visual};});return this.homeVisual(branchId);}
+ async homeTiles(branchId){const s=await this.config();return Array.isArray(s.homeTiles?.[branchId])?copy(s.homeTiles[branchId]):null;}
+ async saveHomeTiles(branchId,tiles){await this.change(s=>{s.homeTiles||={};s.homeTiles[branchId]=copy(tiles);});return this.homeTiles(branchId);}
+ async brandMarquee(branchId){const s=await this.config();return Array.isArray(s.brandMarquees?.[branchId])?copy(s.brandMarquees[branchId]):null;}
+ async saveBrandMarquee(branchId,items){await this.change(s=>{s.brandMarquees||={};s.brandMarquees[branchId]=copy(items);});return this.brandMarquee(branchId);}
+ async promoSpotlight(branchId){const s=await this.config();return {...{mode:'max-discount',headline:'La oferta que estabas buscando',description:'Aprovecha un precio especial en tu sucursal.',badge:'Destacado',gradientStart:'#36275e',gradientEnd:'#0f6278',productId:'',imageUrl:'',backgroundImageUrl:'/assets/editorial/ambiente-color-v44.webp',backgroundOpacity:0.22,backgroundPosition:'center',ambientText:'OFERTAS',ambientColor:'#ffffff'},...(s.promoSpotlights?.[branchId]||{})};}
+ async savePromoSpotlight(branchId,settings){await this.change(s=>{s.promoSpotlights||={};s.promoSpotlights[branchId]=copy(settings);});return this.promoSpotlight(branchId);}
  async rates(branchId){const s=await this.config();return {...defaultRate,...s.rates?.[branchId]};}
  async saveRates(branchId,rates){await this.change(s=>{s.rates||={};s.rates[branchId]={...defaultRate,...rates};});return this.rates(branchId);}
  async listOffers(){if(!this.pool)return copy(this.data.timeOffers||[]);const s=await this.config();return s.timeOffers||[];}

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const seedPath = process.env.INITIAL_CATALOG_FILE ? join(root, process.env.INITIAL_CATALOG_FILE) : join(root, 'data', 'seed.json');
 const currentPath = process.env.DATA_FILE || join(root, 'data', 'current.json');
+const localInitialPath = process.env.INITIAL_CATALOG_FILE ? seedPath : join(root,'data','catalog-bootstrap.json');
 const clone = value => structuredClone(value);
 const lexiconPath=join(root,'data','lexicon.json');
 const aliasKey=v=>String(v||'').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9ñ ]+/g,' ').replace(/\s+/g,' ').trim();
@@ -27,7 +28,7 @@ export class JsonStore {
   async init(){
     await mkdir(dirname(currentPath),{recursive:true});
     try { this.#state=JSON.parse(await readFile(currentPath,'utf8')); }
-    catch(e){ if(e.code !== 'ENOENT') throw e; this.#state=JSON.parse(await readFile(seedPath,'utf8')); }
+    catch(e){ if(e.code !== 'ENOENT') throw e; this.#state=JSON.parse(await readFile(localInitialPath,'utf8')); }
     if(!this.#state.categories.some(x=>x.id==='servicios')){this.#state.categories.push({id:'servicios',name:'Servicios',icon:'printer',order:8});}
     for(const p of this.#state.products){if(!Object.hasOwn(p,'isService'))p.isService=p.categoryId==='servicios';}
     if (!Array.isArray(this.#state.lexicon)){this.#state.lexicon=JSON.parse(await readFile(lexiconPath,'utf8'));await this.#persist();}
